@@ -28,6 +28,18 @@ def test_email_rank_prefers_own_domain_then_named_then_sales_then_info():
     assert ranked.index("info@site.ru") < ranked.index("support@site.ru")
 
 
+def test_email_rank_does_not_mistake_department_boxes_for_people():
+    boxes = ["advertising@site.ru", "support@site.ru", "sales@site.ru", "hr@site.ru"]
+    ranked = sorted(boxes, key=lambda e: email_rank(e, "site.ru"))
+    assert ranked[0] == "sales@site.ru" and ranked.index("advertising@site.ru") > 0
+
+
+def test_email_rank_prefers_person_box_and_demotes_unknown_words():
+    boxes = ["snab@site.ru", "info@site.ru", "stepan@site.ru", "support@site.ru"]
+    ranked = sorted(boxes, key=lambda e: email_rank(e, "site.ru", "Степан Александрович"))
+    assert ranked == ["stepan@site.ru", "info@site.ru", "snab@site.ru", "support@site.ru"]
+
+
 def test_is_role_email():
     assert is_role_email("sales@x.ru") and is_role_email("info@x.ru")
     assert not is_role_email("d.petrov@x.ru")
@@ -35,7 +47,9 @@ def test_is_role_email():
 
 def test_greeting_name_from_egrul_format():
     assert greeting_name("Калашников Дмитрий Сергеевич") == "Дмитрий Сергеевич"
-    assert greeting_name("Иванов Иван") == "Иван"
+    assert greeting_name("Мария Андреевна Житина") == "Мария Андреевна"   # порядок как на сайте
+    assert greeting_name("Аркадий Карцев") == "Аркадий Карцев"           # без отчества не режем
+    assert greeting_name("ГРОМОВ СЕРГЕЙ ВЛАДИМИРОВИЧ") == "Сергей Владимирович"
     assert greeting_name("") == ""
 
 

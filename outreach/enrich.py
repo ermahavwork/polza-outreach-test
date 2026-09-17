@@ -104,7 +104,7 @@ def enrich_one(seed: dict, *, smtp: bool = False) -> dict:
     seen = (seed.get("email_seen") or "").strip().lower()
     if seen and seen not in emails and "@" in seen:
         emails.append(seen)
-    emails.sort(key=lambda e: email_rank(e, site))
+    emails.sort(key=lambda e: email_rank(e, site))  # ЛПР ещё не знаем; финальный отбор пересортирует с учётом имени
     row["Все email с сайта"] = ", ".join(emails[:6])
     if emails:
         best = emails[0]

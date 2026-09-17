@@ -8,4 +8,7 @@ __pycache__/
 out/*.csv
 out/*.xlsx
 !out/.gitkeep
+# результат задачи 4 (чужая база из ТЗ) — часть сдачи, поэтому в git
+!out/polza15_audit.xlsx
+!out/polza15_audit.csv
 .env

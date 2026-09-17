@@ -2,12 +2,16 @@
 без отдельного API-ключа. Резерв: Anthropic API, Gemini. Все ответы — строгий JSON."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 import shutil
 import subprocess
 import time
+from pathlib import Path
+
+LLM_CACHE = Path(os.environ.get("OUTREACH_CACHE", ".cache")) / "llm"
 
 PROVIDER = os.environ.get("OUTREACH_LLM", "auto")  # auto | claude-cli | anthropic | gemini
 CLAUDE_MODEL = os.environ.get("OUTREACH_CLAUDE_MODEL", "haiku")
@@ -72,12 +76,21 @@ def pick_provider() -> str:
 
 
 def ask_json(system: str, user: str, retries: int = 2) -> dict:
+    """Ответ модели кешируется по хешу промпта: оборванный прогон продолжается с места остановки,
+    а повторный запуск на тех же данных не тратит ни токенов, ни времени."""
     prov = pick_provider()
+    key = hashlib.sha1(f"{prov}\n{system}\n{user}".encode()).hexdigest()
+    cp = LLM_CACHE / f"{key}.json"
+    if cp.exists():
+        return json.loads(cp.read_text())
     fn = {"claude-cli": _claude_cli, "anthropic": _anthropic, "gemini": _gemini}[prov]
     last = None
     for i in range(retries + 1):
         try:
-            return _extract_json(fn(system, user))
+            data = _extract_json(fn(system, user))
+            LLM_CACHE.mkdir(parents=True, exist_ok=True)
+            cp.write_text(json.dumps(data, ensure_ascii=False))
+            return data
         except Exception as e:  # noqa: BLE001 — ретраим любую ошибку провайдера/парсинга
             last = e
             time.sleep(2 * (i + 1))

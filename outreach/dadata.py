@@ -44,12 +44,18 @@ def by_name(name: str, count: int = 5) -> list[dict]:
     return [_pack(s) for s in r.json().get("suggestions") or []]
 
 
+PATRONYMIC = ("вич", "вна", "ична", "инична", "оглы", "кызы")
+
+
 def greeting_name(fio: str) -> str:
-    """'Иванов Иван Иванович' -> 'Иван Иванович'; 'Иван Иванов' -> 'Иван'."""
+    """Обращение по имени-отчеству из любого порядка ФИО:
+    'Иванов Иван Иванович' и 'Иван Иванович Иванов' -> 'Иван Иванович'; без отчества возвращаем как есть."""
     parts = [p for p in (fio or "").replace("\xa0", " ").split() if p]
-    if len(parts) >= 3:
-        return " ".join(parts[1:3])
-    if len(parts) == 2:
-        # западный порядок 'Иван Иванов' vs ЕГРЮЛ 'Иванов Иван' — ЕГРЮЛ всегда Фамилия Имя
-        return parts[1] if parts[0].endswith(("ов", "ев", "ин", "ий", "ова", "ева", "ина", "ая", "ко", "ук", "юк")) else parts[0]
-    return fio or ""
+    if fio and fio.isupper():  # ИП в ЕГРЮЛ идут КАПСОМ
+        parts = [p.capitalize() for p in parts]
+    if len(parts) < 3:
+        return " ".join(parts) if parts else ""
+    idx = next((i for i, p in enumerate(parts) if p.lower().endswith(PATRONYMIC)), None)
+    if idx is None or idx == 0:
+        return " ".join(parts[1:3])  # порядок ЕГРЮЛ по умолчанию
+    return f"{parts[idx - 1]} {parts[idx]}"

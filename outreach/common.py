@@ -22,9 +22,28 @@ EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 # Явно не адреса: картинки, домены-примеры, служебные
 EMAIL_JUNK = re.compile(r"\.(png|jpe?g|gif|svg|webp|css|js)$|example\.|sentry|wixpress|"
                         r"@(2x|3x)\b|noreply|no-reply|mailer-daemon", re.I)
-ROLE_PRIORITY = ["sales", "sale", "b2b", "corp", "partner", "info", "office", "mail",
-                 "hello", "contact", "zakaz", "order", "welcome", "manager", "pr",
-                 "hr", "job", "support", "help"]
+# Порядок = приоритет для холодного письма: продажи/партнёрка → общий ящик → всё остальное.
+ROLE_PRIORITY = ["sales", "sale", "b2b", "corp", "partner", "dealer", "opt", "export", "commerce", "kp",
+                 "info", "office", "mail", "hello", "hi", "contact", "zakaz", "order", "request", "welcome",
+                 "manager", "director", "general", "reception", "secretary", "market", "shop", "service",
+                 "advertising", "reklama", "marketing", "media", "press", "pr", "edi", "app", "feedback",
+                 "tender", "buh", "hr", "job", "career", "admin", "webmaster", "support", "help", "tech", "it"]
+FIRST_TIER = 10  # индексы ROLE_PRIORITY до этого числа считаем «продажными» ящиками
+# Транслит частых имён: одиночное слово в local-part считаем именным ящиком только из этого списка
+FIRST_NAMES = set("""ivan petr pavel pasha sergey sergei andrey andrei alexey aleksey alexei alex dmitry dmitriy dima mikhail misha
+nikolay nikolai kolya vladimir vova oleg igor anton artem artyom maxim maksim max roman kirill denis evgeny evgeniy zhenya ilya
+stepan stanislav stas vitaly vitaliy vadim yury yuriy yuri konstantin kostya viktor victor vyacheslav slava boris egor timur
+ruslan rustam ravil marat arkady arkadiy anatoly anatoliy grigory grigoriy leonid semen semyon fedor fyodor gleb daniil danil
+anna anya olga olya elena lena natalia natalya maria masha irina ira svetlana sveta ekaterina katya tatiana tatyana anastasia
+nastya yulia julia ksenia daria dasha alina marina inna elvira galina lyudmila larisa oksana polina vera nadezhda
+angelika""".split())
+TRANSLIT = {"а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "e", "ж": "zh", "з": "z", "и": "i", "й": "y",
+            "к": "k", "л": "l", "м": "m", "н": "n", "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u", "ф": "f",
+            "х": "kh", "ц": "ts", "ч": "ch", "ш": "sh", "щ": "sch", "ъ": "", "ы": "y", "ь": "", "э": "e", "ю": "yu", "я": "ya"}
+
+
+def translit(word: str) -> str:
+    return "".join(TRANSLIT.get(ch, ch) for ch in (word or "").lower())
 # Ящики, куда холодное письмо о продажах писать бессмысленно — в самый конец списка
 ROLE_LOW = ("buh", "buch", "account", "career", "vacan", "rabota", "press", "smi", "legal", "abuse",
             "admin", "webmaster", "noc", "security", "tender", "sklad", "dostavka", "delivery", "reklama")
@@ -146,18 +165,25 @@ def extract_emails(html: str) -> list[str]:
     return found
 
 
-def email_rank(email: str, site_domain: str) -> tuple:
-    """Чем меньше кортеж — тем лучше адрес для холодного письма."""
+def email_rank(email: str, site_domain: str, person: str = "") -> tuple:
+    """Чем меньше кортеж — тем лучше адрес для холодного письма.
+    Порядок: свой домен > ящик самого ЛПР > именной > sales@ > info@ > непонятное слово (snab@, msk@) > support@/hr@."""
     local, _, dom = email.partition("@")
     same = 0 if root_domain(dom) == root_domain(site_domain) else 1
+    if person:  # ящик совпадает с фамилией/именем ЛПР: stepan@ для Степана, dibina@ для Дибиной
+        for tok in person.split():
+            plain = local.replace(".", "").replace("_", "")
+            for t in {translit(tok), translit(tok).replace("ks", "x")}:  # Алексей → aleksey / alexey
+                if len(t) >= 4 and (local.startswith(t[:5]) or t in plain):
+                    return (same, 0, 0)
     if local.startswith(ROLE_LOW):
         return (same, 3, 0)
     role = next((i for i, k in enumerate(ROLE_PRIORITY) if local.startswith(k)), None)
-    # именной ящик (ivanov, i.petrov) лучше sales@, sales@ лучше info@, info@ лучше support@
     if role is None:
-        kind = 1 if re.fullmatch(r"[a-z]+([._-][a-z]+)?", local) else 2
-        return (same, kind, 0)
-    return (same, 1 if role <= 4 else 2, role)
+        # именной ящик только если похоже на имя: i.petrov / ivanov_ii / известное имя; иначе «непонятное слово»
+        named = bool(re.fullmatch(r"[a-z]{1,15}[._-][a-z]{2,15}", local)) or local in FIRST_NAMES
+        return (same, 1 if named else 2.5, 0)
+    return (same, 1 if role < FIRST_TIER else 2 if role < 20 else 3, role)
 
 
 def is_role_email(email: str) -> bool:
