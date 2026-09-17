@@ -1,0 +1,11 @@
+.venv/
+.cache/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+# рабочие выгрузки с реальными контактами в репозиторий не кладём
+out/*.csv
+out/*.xlsx
+!out/.gitkeep
+.env

@@ -1,0 +1,9 @@
+[tool.ruff]
+line-length = 132
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "PERF", "BLE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
