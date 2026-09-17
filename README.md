@@ -7,6 +7,9 @@
 **Google Таблица с результатами (задачи 1–4):**
 https://docs.google.com/spreadsheets/d/1cBHMOQB1ZWEs5X-lRE0KuPxe2IsiUiBUD5mXGquCZaA
 
+**Сводный Google Doc сдачи (ссылки, выводы, письма, стек):**
+https://docs.google.com/document/d/1xwqAyET4MuGRkRuzTneqZ_298SuTMhO5nSk0dyKDJ3M
+
 | Задача | Где смотреть |
 |---|---|
 | 1. База 50+ компаний | лист «База 50+» в таблице; скрипт `outreach/enrich.py` |
